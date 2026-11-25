@@ -41,7 +41,6 @@ import app.simple.felicity.preferences.AppearancePreferences
 import app.simple.felicity.preferences.BehaviourPreferences
 import app.simple.felicity.preferences.ConfigurationPreferences
 import app.simple.felicity.preferences.ShufflePreferences
-import app.simple.felicity.preferences.TrialPreferences
 import app.simple.felicity.repository.covers.AudioCover
 import app.simple.felicity.repository.database.instances.AudioDatabase
 import app.simple.felicity.repository.models.AlbumArtColors
@@ -61,7 +60,6 @@ import app.simple.felicity.theme.themes.dark.DarkTheme
 import app.simple.felicity.theme.themes.light.AlbumArtLight
 import app.simple.felicity.theme.themes.light.LightTheme
 import app.simple.felicity.theme.tools.MonetPalette
-import app.simple.felicity.utils.DateUtils.toDate
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import kotlinx.coroutines.Dispatchers
@@ -122,14 +120,6 @@ open class BaseActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefere
         makeAppFullScreen()
         applyPredictiveBackGesture()
         observeSongChangesForPalette()
-
-        lifecycleScope.launch(Dispatchers.Default) {
-            if (TrialPreferences.isFirstLaunchDateSet().not()) { // Only set once, on the very first launch
-                val firstInstallTime = packageManager.getPackageInfo(packageName, 0).firstInstallTime
-                TrialPreferences.setFirstLaunchDate(firstInstallTime)
-                Log.d(TAG, "First install time set as trial start date: ${firstInstallTime.toDate()}")
-            }
-        }
 
         /**
          * Keeps the instance of current locale of the app

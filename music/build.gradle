@@ -157,7 +157,8 @@ dependencies {
 
     // Google
     implementation 'com.google.android.flexbox:flexbox:3.0.0'
-    playImplementation 'com.android.billingclient:billing-ktx:9.1.0'
+    // Play Billing is deliberately not bundled: this build has no purchase or
+    // licence flow, so the app never talks to a store billing service.
 
     // Third party
 

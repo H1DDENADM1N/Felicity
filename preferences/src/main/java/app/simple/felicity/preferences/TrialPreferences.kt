@@ -4,9 +4,17 @@ import android.annotation.SuppressLint
 import androidx.core.content.edit
 import app.simple.felicity.manager.SharedPreferences
 import app.simple.felicity.preferences.TrialPreferences.MAX_GRACE_LAUNCHES
-import app.simple.felicity.shared.utils.CalendarUtils
-import java.util.Date
 
+/**
+ * Trial / licensing gatekeeper.
+ *
+ * <p><b>Unrestricted build:</b> this branch ships Felicity as a fully unlocked player.
+ * There is no trial countdown, no grace-launch limit and no store or licence-key
+ * activation. Every public query below therefore resolves to "unlocked", while the
+ * API surface is kept identical so the rest of the app compiles and behaves normally.
+ * The persistence helpers are retained only for data compatibility with earlier
+ * installs and are no longer consulted for gating.</p>
+ */
 object TrialPreferences {
 
     private const val MAX_TRIAL_DAYS = 0xE
@@ -40,12 +48,9 @@ object TrialPreferences {
     // ---------------------------------------------------------------------------------------------------------- //
 
     fun getDaysLeft(): Int {
-        return kotlin.runCatching {
-            MAX_TRIAL_DAYS - CalendarUtils.getDaysBetweenTwoDates(Date(getFirstLaunchDate()), CalendarUtils.getToday())
-                .coerceAtLeast(0).coerceAtMost(MAX_TRIAL_DAYS)
-        }.getOrElse {
-            -1
-        }
+        // No countdown in the unrestricted build — report the full period so any
+        // leftover UI that still reads this value shows a consistent, unlocked state.
+        return MAX_TRIAL_DAYS
     }
 
     fun getMaxDays(): Int {
@@ -60,21 +65,20 @@ object TrialPreferences {
     }
 
     fun isAppFullVersionEnabled(): Boolean {
-        return SharedPreferences.getEncryptedSharedPreferences().getBoolean(IS_FULL_VERSION_ENABLED, false) ||
-                CalendarUtils.getDaysBetweenTwoDates(Date(getFirstLaunchDate()), CalendarUtils.getToday()) <= MAX_TRIAL_DAYS
+        // Unrestricted build: the full feature set is always available.
+        return true
     }
 
     fun isWithinTrialPeriod(): Boolean {
-        return CalendarUtils.getDaysBetweenTwoDates(Date(getFirstLaunchDate()), CalendarUtils.getToday()) <= MAX_TRIAL_DAYS
+        return true
     }
 
     fun isTrialWithoutFull(): Boolean {
-        return CalendarUtils.getDaysBetweenTwoDates(Date(getFirstLaunchDate()), CalendarUtils.getToday()) <= MAX_TRIAL_DAYS
-                && !isAppFullVersionEnabled()
+        return false
     }
 
     fun isFullVersion(): Boolean {
-        return SharedPreferences.getEncryptedSharedPreferences().getBoolean(IS_FULL_VERSION_ENABLED, false)
+        return true
     }
 
     // ---------------------------------------------------------------------------------------------------------- //
@@ -116,27 +120,27 @@ object TrialPreferences {
      * @return `true` if trial is expired and grace launches used is less than [MAX_GRACE_LAUNCHES].
      */
     fun isGracePeriodActive(): Boolean {
-        return !isAppFullVersionEnabled() && !isWithinTrialPeriod() && getGraceLaunchesUsed() < MAX_GRACE_LAUNCHES
+        return false
     }
 
     /**
      * Returns `true` when both the trial period and all grace launches have been exhausted,
      * leaving the user with no remaining free launches.
      *
-     * @return `true` if trial is expired and grace launches used has reached [MAX_GRACE_LAUNCHES].
+     * @return Always `false` in the unrestricted build.
      */
     fun isGracePeriodExpired(): Boolean {
-        return !isAppFullVersionEnabled() && !isWithinTrialPeriod() && getGraceLaunchesUsed() >= MAX_GRACE_LAUNCHES
+        return false
     }
 
     /**
      * Convenience check combining trial period expiry and full-version status.
      * Returns `true` whenever the user should be prompted to purchase the app.
      *
-     * @return `true` if the app is not a full version and the trial has expired.
+     * @return Always `false` in the unrestricted build — nothing is ever locked.
      */
     fun isTrialExpired(): Boolean {
-        return !isAppFullVersionEnabled()
+        return false
     }
 
     // ---------------------------------------------------------------------------------------------------------- //
