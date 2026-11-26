@@ -43,6 +43,7 @@ import app.simple.felicity.repository.utils.AudioUtils.getProperArtists
 import app.simple.felicity.repository.utils.AudioUtils.getProperTitle
 import app.simple.felicity.shared.utils.ViewUtils.gone
 import app.simple.felicity.shared.utils.ViewUtils.visible
+import app.simple.felicity.statusbar.StatusBarLyricsController
 import app.simple.felicity.theme.managers.ThemeUtils
 import app.simple.felicity.ui.panels.Lyrics.Companion.TEXT_SIZE_DEBOUNCE_MS
 import app.simple.felicity.ui.subpanels.LrcEditor
@@ -447,6 +448,16 @@ class Lyrics : MediaFragment(), AddLyrics.Companion.OnLyricsCreatedListener {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        StatusBarLyricsController.setLyricsScreenVisible(true)
+    }
+
+    override fun onStop() {
+        StatusBarLyricsController.setLyricsScreenVisible(false)
+        super.onStop()
     }
 
     override fun onDestroyView() {
