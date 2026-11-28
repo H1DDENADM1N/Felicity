@@ -173,6 +173,19 @@ object MediaPlaybackManager {
                 || lastKnownPlaybackState == MediaConstants.PLAYBACK_PAUSED
     }
 
+    /**
+     * Returns `true` while the user expects audio to be coming out — i.e. the last reported
+     * state is [MediaConstants.PLAYBACK_PLAYING].
+     *
+     * <p>This is the intent, not the instantaneous state. It therefore stays `true` while
+     * the player is momentarily stopped for a decoder swap or an aborted crossfade, which
+     * makes it the right thing to consult when rebuilding the engine: the freshly built
+     * player must resume playing because the user never asked it to stop.</p>
+     */
+    fun isPlaybackActive(): Boolean {
+        return lastKnownPlaybackState == MediaConstants.PLAYBACK_PLAYING
+    }
+
     private val listeners = mutableSetOf<MediaStateListener>()
 
     // Current queue index. Setter also emits to observers when valid and changed.

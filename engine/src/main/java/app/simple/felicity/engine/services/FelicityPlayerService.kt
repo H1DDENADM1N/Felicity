@@ -667,12 +667,19 @@ class FelicityPlayerService : MediaLibraryService(), SharedPreferences.OnSharedP
 
         val mediaItems = (0 until player.mediaItemCount).map { player.getMediaItemAt(it) }
         val currentIndex = player.currentMediaItemIndex
+        val resumePosition = player.currentPosition.coerceAtLeast(0L)
 
-        // Grab the play/pause state BEFORE we tear down the player so we can put
-        // things back exactly the way the user left them after the engine is rebuilt.
-        // Without this, a paused player would spring back to life after the fallback
-        // swap — not what anyone wants at 2 AM with the volume cranked up.
-        val wasPlayWhenReady = player.playWhenReady
+        /*
+         * Never read the play/pause state from the failing player alone.
+         *
+         * A decoding error is reported after CrossfadePlayerManager has aborted its fade,
+         * and by that point the active player may be the prerolled incoming slot, whose
+         * playWhenReady is false because it was never started. Trusting that value rebuilds
+         * the engine into a paused state, which is exactly the "the current song stops and
+         * the one I tapped never starts" report. The manager's last reported state survives
+         * the abort and reflects what the user actually asked for.
+         */
+        val wasPlayWhenReady = player.playWhenReady || MediaPlaybackManager.isPlaybackActive()
 
         // Temporarily force the FFmpeg extension without touching user preferences.
         renderersFactory?.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
@@ -681,17 +688,31 @@ class FelicityPlayerService : MediaLibraryService(), SharedPreferences.OnSharedP
 
         buildPlayerWithExtensionMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
 
-        if (mediaItems.isNotEmpty()) {
-            // Always retry from the very beginning of the track (position 0) since we
-            // can't guarantee the partial buffer from the failed decoder is usable.
-            // However, we do respect the user's pause state — paused stays paused.
-            player.setMediaItems(mediaItems, currentIndex, 0L)
-            player.playWhenReady = wasPlayWhenReady
-            player.prepare()
+        // Re-attach the session before touching the new player: between release() and this
+        // line the session still references the player that was just torn down, and any
+        // command arriving in that window (notification, widget, MediaController) is lost.
+        val rebuiltPlayer = playerManager.getSessionPlayer() ?: run {
+            Log.w(TAG, "FFmpeg fallback: rebuilt player unavailable, aborting.")
+            return
+        }
+        mediaSession?.player = rebuiltPlayer
+
+        if (mediaItems.isEmpty()) {
+            Log.w(TAG, "FFmpeg fallback: no media items to restore.")
+            return
         }
 
-        mediaSession?.player = playerManager.getSessionPlayer()!!
-        Log.i(TAG, "FFmpeg fallback: re-trying '${failedItem.mediaId}' from the start with FFmpeg.")
+        // Keep the position the user was at. The buffer belonged to the discarded player,
+        // but the file itself is decoded from scratch by FFmpeg, so seeking is safe and
+        // avoids the jump back to 0:00 that made the fallback look like a restart.
+        player.setMediaItems(mediaItems, currentIndex, resumePosition)
+        player.playWhenReady = wasPlayWhenReady
+        player.prepare()
+
+        Log.i(
+                TAG, "FFmpeg fallback: re-trying '${failedItem.mediaId}' at ${resumePosition}ms " +
+                        "with FFmpeg (playWhenReady=$wasPlayWhenReady)."
+        )
     }
 
     /**
