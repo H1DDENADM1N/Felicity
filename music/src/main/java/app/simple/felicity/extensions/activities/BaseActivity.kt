@@ -290,7 +290,8 @@ open class BaseActivity : AppCompatActivity(), SharedPreferences.OnSharedPrefere
                                 audios = lastSongs,
                                 position = restoredIndex,
                                 startPositionMs = playbackState.position.coerceAtLeast(0L),
-                                isRestore = true
+                                isRestore = true,
+                                originKey = playbackState.originPageKey.ifBlank { null }
                         )
                         Log.d(TAG, "Playback state restored successfully (shuffle=${playbackState.shuffle}, queue=${playbackState.activeQueueId})")
                         onStateReady()

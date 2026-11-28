@@ -497,4 +497,11 @@
 
 Чтобы отключить анимации переходов, перейдите в панель «%1$s».</string>
     <string name="animations">Анимации</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Запоминать прогресс воспроизведения</string>
+    <string name="remember_playback_progress_summary">Добавляет кнопку «Продолжить» между «Воспроизвести» и «Перемешать» на страницах альбомов, исполнителей, жанров и подобных, продолжая последний трек с места остановки.</string>
+    <string name="continue_playback">Продолжить</string>
+    <string name="playback_progress_song_missing">Последний воспроизведённый трек больше не в этом списке.</string>
+    <string name="playback_progress_none">Прогресс ещё не записан — воспроизведение начнётся с первого трека.</string>
 </resources>

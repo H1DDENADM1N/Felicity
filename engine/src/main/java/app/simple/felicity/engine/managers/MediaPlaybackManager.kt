@@ -120,6 +120,42 @@ object MediaPlaybackManager {
     private var activeQueueId: Int = 0
 
     /**
+     * Encoded page key (e.g. {@code album:42}) of the browsing page that started the
+     * current queue, or `null` when playback did not originate from such a page.
+     *
+     * Only the page that actually owns the playback may record progress. Without this,
+     * starting playback from album B while album A was still playing would overwrite
+     * album A's saved position with a song album A does not even contain.
+     *
+     * Kept in memory for the lifetime of the process and persisted into
+     * [app.simple.felicity.repository.models.PlaybackState.originPageKey] alongside the
+     * queue, so attribution survives a cold start.
+     */
+    @Volatile
+    private var originKey: String? = null
+
+    /**
+     * Per-queue-slot memory of which page each slot was started from. Switching slots
+     * temporarily drops the attribution; this map restores it when the user switches back
+     * within the same session.
+     */
+    private val slotOrigins = mutableMapOf<Int, String?>()
+
+    /** Returns the page that started the current queue, or `null` if there is none. */
+    fun getOriginKey(): String? = originKey
+
+    /**
+     * Sets (or clears, with `null`) the page that owns the current queue.
+     *
+     * Called from [setSongs] with the value supplied by the caller, and from the restore
+     * path with the value persisted in the database. Everything else leaves it alone —
+     * ordinary queue changes go through [setSongs] with the default `null`, which clears it.
+     */
+    fun setOriginKey(key: String?) {
+        originKey = key
+    }
+
+    /**
      * Tracks positions for which a user-initiated [mediaController.seekTo] has been issued
      * but the corresponding [notifyCurrentPosition] callback has not yet arrived.
      *
@@ -254,11 +290,22 @@ object MediaPlaybackManager {
      * Note: Emission order between list and position is not strictly guaranteed due to coroutines,
      * but replay=1 on both flows ensures UI will observe the latest of each.
      */
-    fun setSongs(audios: List<Audio>, position: Int = 0, startPositionMs: Long = 0L, autoPlay: Boolean = false, isRestore: Boolean = false) {
+    fun setSongs(
+            audios: List<Audio>,
+            position: Int = 0,
+            startPositionMs: Long = 0L,
+            autoPlay: Boolean = false,
+            isRestore: Boolean = false,
+            originKey: String? = null
+    ) {
         Log.d(
                 TAG,
                 "setSongs called: count=${audios.size}, position=$position, startPositionMs=$startPositionMs, autoPlay=$autoPlay"
         )
+
+        // Attribution follows the queue: whoever supplies a page key owns the progress,
+        // and every caller that omits it (search, songs panel, dialogs, restore) clears it.
+        this.originKey = originKey
 
         // simply skip to the song position since list is same and user does not want shuffling here.
         if (ShufflePreferences.isNoReshuffleEnabled()
@@ -703,6 +750,10 @@ object MediaPlaybackManager {
 
         Log.d(TAG, "switchToQueue: switching from queue $activeQueueId to queue $queueId")
 
+        // Remember which page the outgoing slot was started from so switching back within
+        // this session keeps attributing progress correctly.
+        slotOrigins[activeQueueId] = originKey
+
         isSwitchingQueue = true
         val previousQueueId = activeQueueId
 
@@ -792,6 +843,7 @@ object MediaPlaybackManager {
                     // Mark the switch as fully complete — DB archive, in-memory state,
                     // and ExoPlayer are all updated. Notify observers of the new queue ID.
                     activeQueueId = queueId
+                    originKey = slotOrigins[queueId]
                     _activeQueueIdFlow.emit(queueId)
                 }
             } catch (e: Exception) {
@@ -905,14 +957,14 @@ object MediaPlaybackManager {
         return getCurrentSong()?.id
     }
 
-    fun updatePosition(position: Int, forcePlay: Boolean = false) {
+    fun updatePosition(position: Int, forcePlay: Boolean = false, startPositionMs: Long = 0L) {
         if (position != currentSongPosition) {
             if (position in songs.indices) {
                 lastNavigationDirection = position > currentSongPosition
                 currentSongPosition = position
                 if (mediaController?.currentMediaItemIndex != position) {
                     pendingSeekPositions.add(position)
-                    mediaController?.seekTo(position, 0L)
+                    mediaController?.seekTo(position, startPositionMs)
                 }
                 if (forcePlay) {
                     // Explicit user tap: always start playback regardless of prior pause state.
@@ -927,6 +979,10 @@ object MediaPlaybackManager {
             }
         } else {
             // Same position: resume only when the user explicitly tapped and player is paused.
+            if (startPositionMs > 0L) {
+                mediaController?.seekTo(startPositionMs)
+                _songSeekPositionFlow.value = startPositionMs
+            }
             if (forcePlay && mediaController?.isPlaying == false) {
                 mediaController?.play()
                 startSeekPositionUpdates()

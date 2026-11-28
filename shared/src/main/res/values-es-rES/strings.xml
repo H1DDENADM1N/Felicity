@@ -479,4 +479,11 @@
     <string name="stack_media_controls_summary">Apilar controles multimedia con la forma de onda para crear más espacio vertical.</string>
     <string name="timer_position">Posición del temporizador</string>
     <string name="waveform_menu">Menú de forma de onda</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Recordar progreso de reproducción</string>
+    <string name="remember_playback_progress_summary">Añade un botón «Continuar» entre Reproducir y Aleatorio en las páginas de álbum, artista, género y similares, y retoma la última canción donde la dejaste.</string>
+    <string name="continue_playback">Continuar</string>
+    <string name="playback_progress_song_missing">La última canción reproducida ya no está en esta lista.</string>
+    <string name="playback_progress_none">Aún no hay progreso de reproducción: se empezará por la primera canción.</string>
 </resources>

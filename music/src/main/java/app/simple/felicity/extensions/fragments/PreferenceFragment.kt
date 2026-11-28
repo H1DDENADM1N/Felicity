@@ -864,6 +864,20 @@ abstract class PreferenceFragment : MediaFragment() {
 
         val playerHeader = Preference(type = PreferenceType.SUB_HEADER, title = R.string.player)
 
+        val rememberPlaybackProgressToggle = Preference(
+                title = R.string.remember_playback_progress,
+                summary = R.string.remember_playback_progress_summary,
+                icon = -1,
+                type = PreferenceType.SWITCH,
+                valueProvider = {
+                    BehaviourPreferences.isPlaybackProgressRemembered()
+                },
+                onPreferenceAction = { view, callback ->
+                    val isChecked = (view as FelicitySwitch).isChecked
+                    BehaviourPreferences.setPlaybackProgressRemembered(isChecked)
+                }
+        )
+
         val textChangeEffect = Preference(
                 title = R.string.text_change_effect,
                 summary = R.string.text_change_effect_summary,
@@ -914,6 +928,7 @@ abstract class PreferenceFragment : MediaFragment() {
         preferences.add(miniplayerHeader)
         preferences.add(miniPlayerVisibilityToggle)
         preferences.add(playerHeader)
+        preferences.add(rememberPlaybackProgressToggle)
         preferences.add(textChangeEffect)
 
         return preferences

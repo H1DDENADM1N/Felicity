@@ -196,7 +196,26 @@ open class MediaFragment : KeyboardScopedFragment(), MiniPlayerPolicy {
         }
     }
 
-    protected fun setMediaItems(songs: List<Audio>, position: Int = 0) {
+    /**
+     * Starts playback of [songs] from [position], optionally resuming inside the song at
+     * [startPositionMs] and attributing the queue to [originKey].
+     *
+     * <p>[originKey] is the page that owns this playback (see
+     * [app.simple.felicity.repository.repositories.PagePlaybackKeys]). It is passed to
+     * [MediaPlaybackManager] so the service can keep writing that page's resume position;
+     * every caller that leaves it `null` — search, the songs panel, context menus —
+     * clears the attribution instead.</p>
+     *
+     * @param startPositionMs Offset inside the selected song to resume from. Zero for a
+     *                        normal "play" action; the saved offset for "resume".
+     * @param originKey       Encoded page key, or null for playback started outside a page.
+     */
+    protected fun setMediaItems(
+            songs: List<Audio>,
+            position: Int = 0,
+            startPositionMs: Long = 0L,
+            originKey: String? = null
+    ) {
         // If even one song is in the basket already, this tap is a selection action, not a play
         // action. Toggle the tapped song in or out of the basket and call it a day.
         if (SelectionManager.hasSelection) {
@@ -213,6 +232,10 @@ open class MediaFragment : KeyboardScopedFragment(), MiniPlayerPolicy {
         when {
             isSameQueue && isSameSong -> {
                 // Case 1: Same queue, same song — just open the player
+                MediaPlaybackManager.setOriginKey(originKey)
+                if (startPositionMs > 0L) {
+                    MediaPlaybackManager.seekTo(startPositionMs)
+                }
                 openDefaultPlayer().also {
                     /**
                      * User tapped the same song that's already playing or paused in the queue.
@@ -224,11 +247,15 @@ open class MediaFragment : KeyboardScopedFragment(), MiniPlayerPolicy {
             }
             isSameQueue && !isSameSong -> {
                 // Case 4: Same queue but different song — user tapped explicitly, always play.
-                MediaPlaybackManager.updatePosition(position, forcePlay = true)
+                MediaPlaybackManager.setOriginKey(originKey)
+                MediaPlaybackManager.updatePosition(position, forcePlay = true, startPositionMs = startPositionMs)
             }
             isSameSong -> {
                 // Case 2: Same song playing but queue is different — update queue silently and open player
-                updateQueueSilently(songs, position)
+                updateQueueSilently(songs, position, originKey)
+                if (startPositionMs > 0L) {
+                    MediaPlaybackManager.seekTo(startPositionMs)
+                }
             }
             else -> {
                 // Case 3: Different queue and different song — default behavior.
@@ -238,7 +265,12 @@ open class MediaFragment : KeyboardScopedFragment(), MiniPlayerPolicy {
                 if (LibraryPreferences.isConfirmQueueReplacementEnabled() && hasExistingQueue) {
                     confirmQueueReplacement(
                             onReplace = {
-                                MediaPlaybackManager.setSongs(songs, position, autoPlay = true)
+                                MediaPlaybackManager.setSongs(
+                                        songs, position,
+                                        startPositionMs = startPositionMs,
+                                        autoPlay = true,
+                                        originKey = originKey
+                                )
                                 createSongHistoryDatabase(songs)
                                 showMiniPlayer()
                             },
@@ -261,7 +293,12 @@ open class MediaFragment : KeyboardScopedFragment(), MiniPlayerPolicy {
                     return
                 }
 
-                MediaPlaybackManager.setSongs(songs, position, autoPlay = true)
+                MediaPlaybackManager.setSongs(
+                        songs, position,
+                        startPositionMs = startPositionMs,
+                        autoPlay = true,
+                        originKey = originKey
+                )
                 createSongHistoryDatabase(songs)
             }
         }
@@ -392,9 +429,54 @@ open class MediaFragment : KeyboardScopedFragment(), MiniPlayerPolicy {
      * Shuffles [songs] using the smart artist-aware algorithm, then starts playing from
      * position 0. The shuffled queue replaces the current queue entirely.
      */
-    protected fun shuffleMediaItems(songs: List<Audio>) {
+    /**
+     * Resumes playback of [songs] at [position], starting [startPositionMs] into that song.
+     *
+     * <p>Deliberately bypasses [setMediaItems]'s four-way dispatch. That method is built
+     * around "which queue am I already in" and cannot express "same queue, but move the
+     * playhead": its same-song branch replaces the queue silently, and a seek issued right
+     * after that replacement races against it and lands on the new item at zero. Sending
+     * the offset through [MediaPlaybackManager.setSongs] instead applies the queue and the
+     * seek in one operation, which is the only path that reliably starts mid-song.</p>
+     *
+     * @param songs           The page's songs in their current sort order.
+     * @param position        Index of the song to resume.
+     * @param startPositionMs Offset inside that song.
+     * @param originKey       Page that owns this playback, for further progress recording.
+     */
+    protected fun resumeMediaItems(
+            songs: List<Audio>,
+            position: Int,
+            startPositionMs: Long,
+            originKey: String?
+    ) {
+        val currentSong = MediaPlaybackManager.getCurrentSong()
+        val requestedSong = songs.getOrNull(position)
+        val isSameSong = currentSong != null && requestedSong != null && currentSong.hash == requestedSong.hash
+
+        if (MediaPlaybackManager.isSameQueue(songs) && isSameSong) {
+            // The queue is already exactly this page and the right song is loaded — moving
+            // the playhead is enough, and rebuilding the queue would only interrupt audio.
+            MediaPlaybackManager.setOriginKey(originKey)
+            MediaPlaybackManager.seekTo(startPositionMs)
+            MediaPlaybackManager.startPlayingIfPaused()
+            showMiniPlayer()
+            return
+        }
+
+        MediaPlaybackManager.setSongs(
+                songs, position,
+                startPositionMs = startPositionMs,
+                autoPlay = true,
+                originKey = originKey
+        )
+        createSongHistoryDatabase(songs)
+        showMiniPlayer()
+    }
+
+    protected fun shuffleMediaItems(songs: List<Audio>, originKey: String? = null) {
         val shuffled = smartShuffle(songs, { it.artist ?: "" }).toMutableList()
-        MediaPlaybackManager.setSongs(shuffled, 0, autoPlay = true)
+        MediaPlaybackManager.setSongs(shuffled, 0, autoPlay = true, originKey = originKey)
         createSongHistoryDatabase(shuffled)
     }
 
@@ -407,7 +489,8 @@ open class MediaFragment : KeyboardScopedFragment(), MiniPlayerPolicy {
         openFragment(player, BasePlayerFragment.TAG)
     }
 
-    private fun updateQueueSilently(songs: List<Audio>, position: Int) {
+    private fun updateQueueSilently(songs: List<Audio>, position: Int, originKey: String? = null) {
+        MediaPlaybackManager.setOriginKey(originKey)
         MediaPlaybackManager.updateQueueSilently(songs, position)
         createSongHistoryDatabase(songs)
     }

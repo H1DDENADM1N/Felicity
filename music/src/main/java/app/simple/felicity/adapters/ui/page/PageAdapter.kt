@@ -28,14 +28,17 @@ import app.simple.felicity.decorations.views.FadedLinearLayout
 import app.simple.felicity.glide.util.AudioCoverUtils.loadArtCover
 import app.simple.felicity.models.ArtFlowData
 import app.simple.felicity.models.PageItem
+import app.simple.felicity.preferences.BehaviourPreferences
 import app.simple.felicity.preferences.UserInterfacePreferences
 import app.simple.felicity.repository.models.Album
 import app.simple.felicity.repository.models.Artist
+import app.simple.felicity.repository.models.Audio
 import app.simple.felicity.repository.models.Folder
 import app.simple.felicity.repository.models.Genre
 import app.simple.felicity.repository.models.MusicBrainzAlbumInfo
 import app.simple.felicity.repository.models.MusicBrainzArtistInfo
 import app.simple.felicity.repository.models.PageData
+import app.simple.felicity.repository.models.PagePlaybackProgress
 import app.simple.felicity.repository.models.Playlist
 import app.simple.felicity.repository.models.YearGroup
 import app.simple.felicity.repository.sort.PageSort.setAlbumPageSort
@@ -57,11 +60,33 @@ import com.bumptech.glide.Glide
  */
 class PageAdapter(
         private var data: PageData,
-        private val pageType: PageType
+        private val pageType: PageType,
+        /**
+         * Encoded identity of the page this adapter renders (e.g. {@code album:42}).
+         *
+         * <p>Two pages can share a [PageType] — artist and album-artist pages both use
+         * [PageType.ArtistPage] — so the adapter cannot derive a unique key on its own
+         * and the hosting fragment supplies one.</p>
+         */
+        private val pageKey: String,
+        /**
+         * Reads the page's saved playback position straight from the repository cache.
+         *
+         * <p>Resolved on every header bind instead of being pushed in: binding happens on
+         * sort changes, data emissions and scroll recycling, and each of those must see the
+         * current value even if no state push has arrived yet.</p>
+         */
+        private val progressProvider: (String) -> PagePlaybackProgress? = { null }
 ) : RecyclerView.Adapter<VerticalListViewHolder>() {
 
     private var listener: GeneralAdapterCallbacks? = null
     private val items = mutableListOf<PageItem>()
+
+    /**
+     * Latest saved playback position for this page, or null when the page has never been
+     * played. Supplied through [updateProgress] and only read while binding the header.
+     */
+    private var pageProgress: PagePlaybackProgress? = null
 
     /** Holds the artist info loaded from MusicBrainz. Set from outside via [setArtistInfo]. */
     private var artistInfo: MusicBrainzArtistInfo? = null
@@ -112,6 +137,72 @@ class PageAdapter(
 
         diffResult.dispatchUpdatesTo(this)
         Log.d(TAG, "updateData: DiffUtil updates dispatched")
+    }
+
+    /**
+     * Publishes the page's saved playback position and refreshes the header.
+     *
+     * Called from the hosting fragment whenever the repository's cache emits. Only the
+     * header item carries the "resume" button, so a single item change is enough — no
+     * full rebind of the page.
+     */
+    fun updateProgress(progress: PagePlaybackProgress?) {
+        if (pageProgress == progress) return
+        pageProgress = progress
+        if (itemCount > 0) {
+            notifyItemChanged(0)
+        }
+    }
+
+    /**
+     * Rebinds the header without changing its data.
+     *
+     * Needed when something other than the saved record changes the resume button's
+     * visibility — most notably the "Remember Playback Progress" switch being toggled
+     * while the page is already open.
+     */
+    fun refreshHeader() {
+        if (itemCount > 0) {
+            notifyItemChanged(0)
+        }
+    }
+
+    /**
+     * Shows the "resume" button on a page header and dims it while the page has no saved
+     * position.
+     *
+     * <p>The button is always present while the feature is enabled — a greyed-out button
+     * tells the user the feature exists and what it does, whereas a button that only
+     * appears after the first play is indistinguishable from a missing feature. With no
+     * saved position it is faded and taps fall back to "play from the start"; once a
+     * position exists it is drawn at full strength.</p>
+     *
+     * <p>Dimming is done with [View.setAlpha] rather than by swapping text colours: the
+     * header labels derive their colour from the theme in
+     * [app.simple.felicity.decorations.typeface.TypeFaceTextView], which re-applies it on
+     * theme and drawable changes and would overwrite a colour set from here.</p>
+     */
+    private fun AdapterHeaderArtistPageBinding.bindContinuePlayback(songs: List<Audio>) {
+        if (!BehaviourPreferences.isPlaybackProgressRemembered()) {
+            continuePlayback.visibility = View.GONE
+            return
+        }
+
+        val record = progressProvider(pageKey)
+        val color = if (record != null) {
+            app.simple.felicity.theme.managers.ThemeManager.accent.primaryAccentColor
+        } else {
+            app.simple.felicity.theme.managers.ThemeManager.theme.textViewTheme.tertiaryTextColor
+        }
+
+        continuePlayback.visibility = View.VISIBLE
+        continuePlayback.alpha = 1f
+        continuePlayback.setTextColor(color)
+        androidx.core.widget.TextViewCompat.setCompoundDrawableTintList(
+                continuePlayback, android.content.res.ColorStateList.valueOf(color))
+        continuePlayback.setOnClickListener {
+            listener?.onContinueClicked(songs)
+        }
     }
 
     /**
@@ -686,6 +777,7 @@ class PageAdapter(
                     listener?.onShuffleLongClicked(item.songs, 0)
                     true
                 }
+                bindContinuePlayback(item.songs)
                 menu.setOnClickListener {
                     listener?.onMenuClicked(it)
                 }
@@ -737,6 +829,7 @@ class PageAdapter(
                 shuffle.setOnClickListener {
                     listener?.onShuffleClicked(item.songs, 0)
                 }
+                bindContinuePlayback(item.songs)
                 menu.setOnClickListener {
                     listener?.onMenuClicked(it)
                 }

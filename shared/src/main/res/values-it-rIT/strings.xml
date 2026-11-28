@@ -481,4 +481,11 @@
     <string name="stack_media_controls_summary">Impila i controlli multimediali con la forma d\'onda per creare più spazio verticale.</string>
     <string name="timer_position">Posizione del timer</string>
     <string name="waveform_menu">Menu forma d\'onda</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Ricorda avanzamento di riproduzione</string>
+    <string name="remember_playback_progress_summary">Aggiunge un pulsante «Riprendi» tra Riproduci e Casuale nelle pagine album, artista, genere e simili, riprendendo l\'ultimo brano dal punto in cui l\'hai lasciato.</string>
+    <string name="continue_playback">Riprendi</string>
+    <string name="playback_progress_song_missing">L\'ultimo brano riprodotto non è più in questo elenco.</string>
+    <string name="playback_progress_none">Nessun avanzamento salvato: si parte dal primo brano.</string>
 </resources>

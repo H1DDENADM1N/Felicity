@@ -21,6 +21,12 @@ object BehaviourPreferences {
     const val TEXT_CHANGE_EFFECT = "text_change_effect"
     const val FRAGMENT_TRANSITION = "fragment_transition"
 
+    /**
+     * Remembers, per browsing page, which song was playing and how far into it the user
+     * got, so the page can offer a "resume" action.
+     */
+    const val REMEMBER_PLAYBACK_PROGRESS = "remember_playback_progress"
+
     const val HIDE_FAST_SCROLLBAR = 0
     const val FADE_FAST_SCROLLBAR = 1
 
@@ -44,6 +50,27 @@ object BehaviourPreferences {
 
     /** Fragment transition: crossfade — fragments fade in and out with no translation. */
     const val TRANSITION_FADE = 2
+
+    // ---------------------------------------------------------------------------------------------------------- //
+
+    /**
+     * Persists whether playing from a browsing page should record where the user left off.
+     * Off by default: the extra "resume" button only appears when the user asks for it.
+     */
+    fun setPlaybackProgressRemembered(enabled: Boolean) {
+        SharedPreferences.getSharedPreferences().edit {
+            putBoolean(REMEMBER_PLAYBACK_PROGRESS, enabled)
+        }
+    }
+
+    /**
+     * Returns true when page playback progress should be written and the resume button
+     * shown. Defaults to `false`.
+     */
+    fun isPlaybackProgressRemembered(): Boolean {
+        return SharedPreferences.getSharedPreferences()
+            .getBoolean(REMEMBER_PLAYBACK_PROGRESS, false)
+    }
 
     // ---------------------------------------------------------------------------------------------------------- //
 

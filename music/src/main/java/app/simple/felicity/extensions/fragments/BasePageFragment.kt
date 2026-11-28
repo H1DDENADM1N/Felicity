@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -16,6 +17,7 @@ import app.simple.felicity.decorations.utils.RecyclerViewUtils.addItemDecoration
 import app.simple.felicity.dialogs.pages.PageSortDialog.Companion.showPageSortDialog
 import app.simple.felicity.dialogs.songs.ShuffleDialog.Companion.showShuffleDialog
 import app.simple.felicity.preferences.AppearancePreferences
+import app.simple.felicity.preferences.BehaviourPreferences
 import app.simple.felicity.preferences.PagePreferences
 import app.simple.felicity.preferences.UserInterfacePreferences
 import app.simple.felicity.repository.models.Album
@@ -23,13 +25,18 @@ import app.simple.felicity.repository.models.Artist
 import app.simple.felicity.repository.models.Audio
 import app.simple.felicity.repository.models.Genre
 import app.simple.felicity.repository.models.PageData
+import app.simple.felicity.repository.models.PagePlaybackProgress
+import app.simple.felicity.repository.repositories.PageProgressRepository
 import app.simple.felicity.repository.sort.PageSort
 import app.simple.felicity.ui.pages.AlbumArtistPage
 import app.simple.felicity.ui.pages.AlbumPage
 import app.simple.felicity.ui.pages.ArtistPage
 import app.simple.felicity.ui.pages.GenrePage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+import kotlin.math.max
 
 /**
  * Base fragment shared by all page panels:
@@ -72,6 +79,28 @@ abstract class BasePageFragment : MediaFragment() {
     protected abstract val pageType: PageAdapter.PageType
 
     /**
+     * Encoded identity of this page, e.g. {@code album:42} or {@code album_artist:7}.
+     *
+     * <p>Acts as the key for the page's saved playback position and as the queue's
+     * attribution while playback started here is running. It cannot be derived from
+     * [pageType] alone: artist and album-artist pages both report
+     * [PageAdapter.PageType.ArtistPage] and must keep separate progress.</p>
+     *
+     * @see app.simple.felicity.repository.repositories.PagePlaybackKeys
+     */
+    protected abstract val pageKey: String
+
+    /**
+     * Cache of per-page playback positions. Injected rather than looked up per bind because
+     * the header asks for the record on every rebind, including while scrolling.
+     */
+    @Inject
+    lateinit var pageProgressRepository: PageProgressRepository
+
+    /** Latest known record for this page; kept so a late-created adapter can be seeded. */
+    private var latestProgress: PagePlaybackProgress? = null
+
+    /**
      * Called when the user taps the overflow menu button in the page header.
      * Each subclass shows its own popup with the appropriate action items.
      *
@@ -100,6 +129,20 @@ abstract class BasePageFragment : MediaFragment() {
         super.onViewCreated(view, savedInstanceState)
         pageRecyclerView.requireAttachedMiniPlayer()
         postponeEnterTransition()
+
+        // Seed the cache off the main thread — the first read must not block the first frame.
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            pageProgressRepository.ensureLoaded()
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                pageProgressRepository.progress.collect { progress ->
+                    latestProgress = progress[pageKey]
+                    pageAdapter?.updateProgress(latestProgress)
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {
@@ -114,6 +157,9 @@ abstract class BasePageFragment : MediaFragment() {
         }
         if (key == UserInterfacePreferences.SONGS_FIRST_IN_PAGES) {
             latestPageData?.let { onPageData(it) }
+        }
+        if (key == BehaviourPreferences.REMEMBER_PLAYBACK_PROGRESS) {
+            pageAdapter?.refreshHeader()
         }
     }
 
@@ -149,7 +195,8 @@ abstract class BasePageFragment : MediaFragment() {
                 PageSpacingItemDecoration(horPad, AppearancePreferences.getListSpacing().toInt()))
 
         if (pageAdapter == null) {
-            pageAdapter = PageAdapter(data, pageType)
+            pageAdapter = PageAdapter(data, pageType, pageKey) { key -> pageProgressRepository.get(key) }
+            pageAdapter?.updateProgress(latestProgress)
             pageRecyclerView.adapter = pageAdapter
             setupAdapterCallbacks()
             onPageAdapterCreated()
@@ -198,7 +245,7 @@ abstract class BasePageFragment : MediaFragment() {
     private fun setupAdapterCallbacks() {
         pageAdapter?.setArtistAdapterListener(object : GeneralAdapterCallbacks {
             override fun onSongClicked(songs: MutableList<Audio>, position: Int, view: View) {
-                setMediaItems(songs, position)
+                setMediaItems(songs, position, originKey = pageKey)
             }
 
             override fun onSongLongClicked(songs: List<Audio>, position: Int, imageView: ImageView?) {
@@ -206,15 +253,53 @@ abstract class BasePageFragment : MediaFragment() {
             }
 
             override fun onPlayClicked(audios: MutableList<Audio>, position: Int) {
-                setMediaItems(audios, position)
+                setMediaItems(audios, position, originKey = pageKey)
             }
 
             override fun onShuffleClicked(audios: MutableList<Audio>, position: Int) {
-                shuffleMediaItems(audios)
+                shuffleMediaItems(audios, originKey = pageKey)
             }
 
             override fun onShuffleLongClicked(audios: List<Audio?>?, position: Int) {
                 childFragmentManager.showShuffleDialog()
+            }
+
+            /**
+             * Resumes the page where the user left off.
+             *
+             * The saved song is located by hash inside the list that is currently displayed,
+             * which is already ordered by the active sort style — so changing the sort never
+             * invalidates the resume point. With no record at all the button is shown greyed
+             * out and acts as a plain "play from the start"; if the recorded song has since
+             * disappeared from the page the user is told before playback starts from the top.
+             */
+            override fun onContinueClicked(songs: List<Audio>) {
+                val record = latestProgress ?: pageProgressRepository.get(pageKey)
+
+                if (record == null) {
+                    Toast.makeText(
+                            requireContext(),
+                            R.string.playback_progress_none,
+                            Toast.LENGTH_SHORT
+                    ).show()
+                    resumeMediaItems(songs, 0, 0L, pageKey)
+                    return
+                }
+
+                val index = songs.indexOfFirst { it.hash == record.audioHash }
+
+                if (index >= 0) {
+                    val duration = songs[index].duration
+                    val seek = record.positionMs.coerceIn(0L, max(0L, duration - 1_000L))
+                    resumeMediaItems(songs, index, seek, pageKey)
+                } else {
+                    Toast.makeText(
+                            requireContext(),
+                            R.string.playback_progress_song_missing,
+                            Toast.LENGTH_SHORT
+                    ).show()
+                    resumeMediaItems(songs, 0, 0L, pageKey)
+                }
             }
 
             override fun onArtistClicked(artists: List<Artist>, position: Int, view: View) {

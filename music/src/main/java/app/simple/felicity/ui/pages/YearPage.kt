@@ -17,6 +17,7 @@ import app.simple.felicity.engine.managers.MediaPlaybackManager
 import app.simple.felicity.extensions.fragments.BasePageFragment
 import app.simple.felicity.repository.constants.BundleConstants
 import app.simple.felicity.repository.models.YearGroup
+import app.simple.felicity.repository.repositories.PagePlaybackKeys
 import app.simple.felicity.utils.ParcelUtils.parcelable
 import app.simple.felicity.viewmodels.viewer.YearViewerViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -45,6 +46,8 @@ class YearPage : BasePageFragment() {
         get() = binding.recyclerView
 
     override val pageType: PageAdapter.PageType by lazy { PageAdapter.PageType.YearPage(yearGroup) }
+
+    override val pageKey: String by lazy { PagePlaybackKeys.of(PagePlaybackKeys.YEAR, yearGroup.id) }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentPageYearBinding.inflate(inflater, container, false)

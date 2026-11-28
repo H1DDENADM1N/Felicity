@@ -506,4 +506,11 @@
     <string name="animations">Animations</string>
     <string name="miniplayer_width">Largeur du mini lecteur</string>
     <string name="miniplayer_width_summary">Ajuste la largeur horizontale du mini-lecteur en mode paysage.</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Mémoriser la progression de lecture</string>
+    <string name="remember_playback_progress_summary">Ajoute un bouton « Reprendre » entre Lire et Aléatoire sur les pages album, artiste, genre et similaires, et reprend la dernière chanson là où vous l\'avez laissée.</string>
+    <string name="continue_playback">Reprendre</string>
+    <string name="playback_progress_song_missing">La dernière chanson lue ne figure plus dans cette liste.</string>
+    <string name="playback_progress_none">Aucune progression enregistrée — la lecture démarre à la première chanson.</string>
 </resources>

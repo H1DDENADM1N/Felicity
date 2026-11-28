@@ -29,6 +29,7 @@ import app.simple.felicity.engine.managers.MediaPlaybackManager
 import app.simple.felicity.extensions.fragments.BasePageFragment
 import app.simple.felicity.repository.constants.BundleConstants
 import app.simple.felicity.repository.models.Playlist
+import app.simple.felicity.repository.repositories.PagePlaybackKeys
 import app.simple.felicity.utils.ParcelUtils.parcelable
 import app.simple.felicity.viewmodels.viewer.PlaylistViewerViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -58,6 +59,8 @@ class PlaylistPage : BasePageFragment() {
         get() = binding.recyclerView
 
     override val pageType: PageAdapter.PageType by lazy { PageAdapter.PageType.PlaylistPage(playlist) }
+
+    override val pageKey: String by lazy { PagePlaybackKeys.of(PagePlaybackKeys.PLAYLIST, playlist.id) }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentPageArtistBinding.inflate(inflater, container, false)

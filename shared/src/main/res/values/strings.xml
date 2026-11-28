@@ -593,4 +593,11 @@
     <string name="crossfade_duration_summary">Duration to fade between tracks during playback transitions.</string>
     <string name="felicity_inure_bundle">Felicity &amp; Inure Bundle</string>
     <string name="felicity_inure_bundle_summary">Get 20% discount on purchasing Felicity &amp; Inure together.</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Remember Playback Progress</string>
+    <string name="remember_playback_progress_summary">Adds a resume button between Play and Shuffle on album, artist, genre and similar pages, picking up the last song where you left it.</string>
+    <string name="continue_playback">Resume</string>
+    <string name="playback_progress_song_missing">The last played song is no longer in this list.</string>
+    <string name="playback_progress_none">No playback progress yet — starting from the first song.</string>
 </resources>

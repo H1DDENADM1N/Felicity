@@ -192,6 +192,23 @@
                 app:layout_constraintTop_toBottomOf="@id/poster" />
 
             <app.simple.felicity.decorations.ripple.DynamicRippleTextView
+                android:id="@+id/continue_playback"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/continue_playback"
+                android:textSize="@dimen/text_size_16"
+                app:textColorStyle="accent"
+                android:drawableStart="@drawable/ic_history_16dp"
+                android:padding="@dimen/padding_10"
+                android:layout_marginStart="@dimen/padding_5"
+                android:drawablePadding="@dimen/padding_5"
+                android:gravity="center_vertical"
+                android:layout_gravity="center_vertical"
+                app:drawableTintStyle="accent"
+                android:visibility="gone"
+                tools:ignore="RtlSymmetry" />
+
+            <app.simple.felicity.decorations.ripple.DynamicRippleTextView
                 android:id="@+id/shuffle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

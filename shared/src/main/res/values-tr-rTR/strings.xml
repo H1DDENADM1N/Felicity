@@ -481,4 +481,11 @@
     <string name="stack_media_controls_summary">Daha fazla dikey alan oluşturmak için medya kontrollerini dalga biçimiyle yığın.</string>
     <string name="timer_position">Zamanlayıcı Konumu</string>
     <string name="waveform_menu">Dalga Biçimi Menüsü</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Oynatma ilerlemesini hatırla</string>
+    <string name="remember_playback_progress_summary">Albüm, sanatçı, tür ve benzeri sayfalarda Çal ile Karışık arasına bir «Devam et» düğmesi ekler ve son şarkıyı bıraktığınız yerden sürdürür.</string>
+    <string name="continue_playback">Devam et</string>
+    <string name="playback_progress_song_missing">Son çalınan şarkı artık bu listede değil.</string>
+    <string name="playback_progress_none">Henüz oynatma ilerlemesi yok — ilk şarkıdan başlanacak.</string>
 </resources>

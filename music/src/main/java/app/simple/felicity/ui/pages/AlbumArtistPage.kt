@@ -27,6 +27,7 @@ import app.simple.felicity.engine.managers.MediaPlaybackManager
 import app.simple.felicity.extensions.fragments.BasePageFragment
 import app.simple.felicity.repository.constants.BundleConstants
 import app.simple.felicity.repository.models.Artist
+import app.simple.felicity.repository.repositories.PagePlaybackKeys
 import app.simple.felicity.utils.ParcelUtils.parcelable
 import app.simple.felicity.viewmodels.viewer.AlbumArtistViewerViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -60,6 +61,8 @@ class AlbumArtistPage : BasePageFragment() {
      * which shows the artist name, album count, and song count at the top of the list.
      */
     override val pageType: PageAdapter.PageType by lazy { PageAdapter.PageType.ArtistPage(albumArtist) }
+
+    override val pageKey: String by lazy { PagePlaybackKeys.of(PagePlaybackKeys.ALBUM_ARTIST, albumArtist.id) }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         binding = FragmentPageAlbumArtistBinding.inflate(inflater, container, false)

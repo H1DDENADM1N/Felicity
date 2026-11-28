@@ -104,7 +104,8 @@ object PlaybackStateManager {
                     position = seek,
                     shuffle = ShufflePreferences.isShuffleEnabled(),
                     repeat = 0,
-                    activeQueueId = activeQueueId
+                    activeQueueId = activeQueueId,
+                    originPageKey = MediaPlaybackManager.getOriginKey().orEmpty()
             )
             Log.d(
                     logTag, "Playback state saved: position=$position, seek=$seek, " +
@@ -132,6 +133,8 @@ object PlaybackStateManager {
      * @param shuffle       Whether shuffle mode was active.
      * @param repeat        Repeat mode constant.
      * @param activeQueueId Which queue slot (0–4) this state belongs to.
+     * @param originPageKey Encoded page key that started this queue, or an empty string for
+     *                      queues started outside a browsing page.
      */
     suspend fun savePlaybackState(
             db: AudioDatabase,
@@ -140,7 +143,8 @@ object PlaybackStateManager {
             position: Long,
             shuffle: Boolean,
             repeat: Int,
-            activeQueueId: Int = 0
+            activeQueueId: Int = 0,
+            originPageKey: String = ""
     ) {
         if (queueHash.isEmpty()) return
 
@@ -153,7 +157,8 @@ object PlaybackStateManager {
                 repeatMode = repeat,
                 updatedAt = System.currentTimeMillis(),
                 currentHash = currentHash,
-                activeQueueId = activeQueueId
+                activeQueueId = activeQueueId,
+                originPageKey = originPageKey
         )
 
         val entries = queueHash.mapIndexed { pos, hash ->
@@ -293,7 +298,9 @@ object PlaybackStateManager {
         //         slot is restored on the next cold launch.
         val currentState = fetchPlaybackState(db)
         if (currentState != null) {
-            db.playbackStateDao().save(currentState.copy(activeQueueId = targetQueueId))
+            // Loading a different slot drops the page attribution: the queue that is about
+            // to play did not come from the page the previous queue was started from.
+            db.playbackStateDao().save(currentState.copy(activeQueueId = targetQueueId, originPageKey = ""))
         } else {
             // No state row exists yet — create a minimal one with just the queue ID.
             db.playbackStateDao().save(

@@ -482,4 +482,11 @@
     <string name="stack_media_controls_summary">将媒体控件与波形堆叠以创建更多垂直空间。</string>
     <string name="timer_position">计时器位置</string>
     <string name="waveform_menu">波形菜单</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">记录播放进度</string>
+    <string name="remember_playback_progress_summary">在专辑、歌手、流派等页面的「播放」与「随机播放」之间增加「继续播放」，从上次离开的那首歌和位置接着放。</string>
+    <string name="continue_playback">继续</string>
+    <string name="playback_progress_song_missing">上次播放的歌曲已不在列表中。</string>
+    <string name="playback_progress_none">暂无播放记录，将从头开始播放。</string>
 </resources>

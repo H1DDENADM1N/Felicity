@@ -37,6 +37,19 @@ public interface GeneralAdapterCallbacks {
     
     }
     
+    /**
+     * Invoked when the "resume" button in a page header is tapped.
+     *
+     * <p>The callback receives the page's songs in their current sort order; resolving
+     * the saved song hash to an index and restoring the seek offset is the host's job,
+     * because only the host knows the page key and its saved progress.</p>
+     *
+     * @param songs The page's songs, already ordered by the active sort style.
+     */
+    default void onContinueClicked(@NonNull List <Audio> songs) {
+    
+    }
+    
     default void onShuffleLongClicked(List <Audio> audios, int position) {
     
     }

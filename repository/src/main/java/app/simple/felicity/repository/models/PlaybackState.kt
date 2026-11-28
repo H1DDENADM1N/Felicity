@@ -33,6 +33,15 @@ data class PlaybackState(
         @ColumnInfo(name = "current_hash") val currentHash: Long = 0L,
         /** Which of the five saved queues (0–4) was active when state was persisted. */
         @ColumnInfo(name = "active_queue_id", defaultValue = "0")
-        val activeQueueId: Int = 0
+        val activeQueueId: Int = 0,
+        /**
+         * Encoded page key (e.g. {@code album:42}) of the page that started this queue, or
+         * an empty string when playback did not originate from a browsing page.
+         *
+         * <p>Persisted alongside the queue so progress keeps being attributed to the right
+         * page after the process is killed and the queue is restored.</p>
+         */
+        @ColumnInfo(name = "origin_page_key", defaultValue = "")
+        val originPageKey: String = ""
 )
 

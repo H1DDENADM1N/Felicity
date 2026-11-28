@@ -495,4 +495,11 @@
     <string name="reduce_animations">کاهش انیمیشن‌ها</string>
     <string name="reduce_animations_summary">برخی از انیمیشن‌های غیرضروری را در سراسر برنامه غیرفعال کنید. ممکن است عملکرد برنامه را در برخی دستگاه‌ها بهبود بخشد.\n\nبرای غیرفعال کردن انیمیشن‌های انتقال، به پنل %1$s بروید.</string>
     <string name="animations">انیمیشن‌ها</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">به‌خاطر سپردن پیشرفت پخش</string>
+    <string name="remember_playback_progress_summary">در صفحه‌های آلبوم، هنرمند، سبک و مانند آن، دکمهٔ «ادامه» را میان «پخش» و «پخش تصادفی» اضافه می‌کند و آخرین آهنگ را از همان‌جا که رها کرده‌اید ادامه می‌دهد.</string>
+    <string name="continue_playback">ادامه</string>
+    <string name="playback_progress_song_missing">آخرین آهنگ پخش‌شده دیگر در این فهرست نیست.</string>
+    <string name="playback_progress_none">هنوز پیشرفتی ثبت نشده است — از نخستین آهنگ آغاز می‌شود.</string>
 </resources>

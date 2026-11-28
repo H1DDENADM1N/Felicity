@@ -481,4 +481,11 @@
     <string name="stack_media_controls_summary">Mediensteuerung mit Wellenform stapeln, um mehr vertikalen Platz zu schaffen.</string>
     <string name="timer_position">Timer-Position</string>
     <string name="waveform_menu">Wellenform-Menü</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Wiedergabefortschritt merken</string>
+    <string name="remember_playback_progress_summary">Fügt auf Album-, Interpreten-, Genre- und ähnlichen Seiten eine Schaltfläche „Fortsetzen“ zwischen „Abspielen“ und „Zufallswiedergabe“ hinzu und setzt beim zuletzt gehörten Titel an der letzten Stelle fort.</string>
+    <string name="continue_playback">Fortsetzen</string>
+    <string name="playback_progress_song_missing">Der zuletzt gespielte Titel ist nicht mehr in dieser Liste.</string>
+    <string name="playback_progress_none">Noch kein Wiedergabefortschritt – die Wiedergabe beginnt mit dem ersten Titel.</string>
 </resources>

@@ -510,4 +510,11 @@
     <string name="animations">Animacje</string>
     <string name="miniplayer_width">Szerokość miniodtwarzacza</string>
     <string name="miniplayer_width_summary">Dostosuj poziomą szerokość miniodtwarzacza w trybie poziomej orientacji.</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Zapamiętuj postęp odtwarzania</string>
+    <string name="remember_playback_progress_summary">Dodaje przycisk „Wznów” między Odtwarzaj i Losuj na stronach albumów, wykonawców, gatunków i podobnych; wznawia ostatni utwór od miejsca, w którym przerwano.</string>
+    <string name="continue_playback">Wznów</string>
+    <string name="playback_progress_song_missing">Ostatnio odtwarzany utwór nie znajduje się już na tej liście.</string>
+    <string name="playback_progress_none">Brak zapisanego postępu — odtwarzanie od pierwszego utworu.</string>
 </resources>

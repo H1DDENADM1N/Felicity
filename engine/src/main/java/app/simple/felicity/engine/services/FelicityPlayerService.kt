@@ -60,6 +60,7 @@ import app.simple.felicity.manager.SharedPreferences.initRegisterSharedPreferenc
 import app.simple.felicity.manager.SharedPreferences.unregisterSharedPreferenceChangeListener
 import app.simple.felicity.preferences.AppearancePreferences
 import app.simple.felicity.preferences.AudioPreferences
+import app.simple.felicity.preferences.BehaviourPreferences
 import app.simple.felicity.preferences.EqualizerPreferences
 import app.simple.felicity.preferences.PlayerPreferences
 import app.simple.felicity.preferences.ShufflePreferences
@@ -69,6 +70,7 @@ import app.simple.felicity.repository.constants.MediaConstants
 import app.simple.felicity.repository.database.instances.AudioDatabase
 import app.simple.felicity.repository.models.Audio
 import app.simple.felicity.repository.repositories.AudioRepository
+import app.simple.felicity.repository.repositories.PageProgressRepository
 import app.simple.felicity.repository.repositories.SongStatRepository
 import app.simple.felicity.repository.utils.AudioUtils.getProperAlbum
 import app.simple.felicity.repository.utils.AudioUtils.getProperArtists
@@ -104,6 +106,9 @@ class FelicityPlayerService : MediaLibraryService(), SharedPreferences.OnSharedP
 
     @Inject
     lateinit var songStatRepository: SongStatRepository
+
+    @Inject
+    lateinit var pageProgressRepository: PageProgressRepository
 
     private var mediaSession: MediaLibrarySession? = null
 
@@ -253,6 +258,12 @@ class FelicityPlayerService : MediaLibraryService(), SharedPreferences.OnSharedP
         super.onCreate()
         initRegisterSharedPreferenceChangeListener(applicationContext)
         playbackErrorNotifier = PlaybackErrorNotifier(applicationContext)
+
+        // Prune page playback progress once per process: rows whose song has been deleted
+        // and rows beyond the retention cap would otherwise accumulate forever.
+        serviceScope.launch(Dispatchers.IO) {
+            pageProgressRepository.cleanup()
+        }
 
         // Register the USB DAC driver so it starts listening for permission results.
         // This must happen before any USB device could be plugged in during the service lifetime.
@@ -1558,6 +1569,39 @@ class FelicityPlayerService : MediaLibraryService(), SharedPreferences.OnSharedP
                     TAG,
                     seekOverride = seek
             )
+
+            savePagePlaybackProgress(seek)
+        }
+    }
+
+    /**
+     * Writes "where the user left off" for the page that owns the current queue.
+     *
+     * <p>Runs on every state save (periodic tick, pause, track change, service teardown),
+     * which is exactly the cadence the resume feature needs — no separate timer. The page
+     * key comes from the queue's origin, so a page whose queue is no longer playing keeps
+     * the position it had when the user moved on.</p>
+     *
+     * @param seek Current playback offset, captured on the main thread by the caller.
+     */
+    private fun savePagePlaybackProgress(seek: Long) {
+        if (!BehaviourPreferences.isPlaybackProgressRemembered()) return
+
+        val pageKey = MediaPlaybackManager.getOriginKey() ?: return
+        val song = MediaPlaybackManager.getCurrentSong() ?: return
+
+        /*
+         * A stopped, un-prepared or freshly restored player reports 0 as its current
+         * position. State is saved on pause, on teardown and on service creation, so
+         * without this guard those saves would keep overwriting a real offset with zero —
+         * which is exactly what "resume always starts from the beginning" looks like.
+         * Zero is only recorded while playback is genuinely running.
+         */
+        val isPlaying = isPlayerInitialized && player.isPlaying
+        if (seek <= 0L && !isPlaying) return
+
+        serviceScope.launch(Dispatchers.IO) {
+            pageProgressRepository.record(pageKey, song.hash, seek)
         }
     }
 

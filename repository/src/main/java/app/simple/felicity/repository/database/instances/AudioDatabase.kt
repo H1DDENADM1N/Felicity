@@ -13,6 +13,7 @@ import app.simple.felicity.repository.database.dao.AlbumInfoCacheDao
 import app.simple.felicity.repository.database.dao.ArtistInfoCacheDao
 import app.simple.felicity.repository.database.dao.AudioDao
 import app.simple.felicity.repository.database.dao.BookmarkDao
+import app.simple.felicity.repository.database.dao.PagePlaybackProgressDao
 import app.simple.felicity.repository.database.dao.PlaybackQueueDao
 import app.simple.felicity.repository.database.dao.PlaybackStateDao
 import app.simple.felicity.repository.database.dao.PlaylistDao
@@ -25,6 +26,7 @@ import app.simple.felicity.repository.models.AudioBookmark
 import app.simple.felicity.repository.models.AudioStat
 import app.simple.felicity.repository.models.MusicBrainzAlbumInfo
 import app.simple.felicity.repository.models.MusicBrainzArtistInfo
+import app.simple.felicity.repository.models.PagePlaybackProgress
 import app.simple.felicity.repository.models.PlaybackQueueEntry
 import app.simple.felicity.repository.models.PlaybackState
 import app.simple.felicity.repository.models.Playlist
@@ -72,6 +74,11 @@ import app.simple.felicity.repository.models.WaveformData
  *   instead of decoding the file again.
  *   22 → 23: Added {@code last_used} timestamp to {@code saved_queue} so that we can
  *   find the least recently used or oldest queue slot.
+ *   23 → 24: Created the {@code page_playback_progress} table and added
+ *   {@code origin_page_key} to {@code playback_state}. Together they let a browsing page
+ *   remember which song was playing and how far into it the user got, so the page can
+ *   offer a "resume" action. The song is referenced by hash, never by index, because the
+ *   index changes whenever the user picks a different sort order.
  *
  * @author Hamza417
  */
@@ -88,9 +95,10 @@ import app.simple.felicity.repository.models.WaveformData
             AudioBookmark::class,
             SavedQueueEntry::class,
             AlbumArtColors::class,
-            WaveformData::class
+            WaveformData::class,
+            PagePlaybackProgress::class
         ],
-        version = 23,
+        version = 24,
         exportSchema = true
 )
 abstract class AudioDatabase : RoomDatabase() {
@@ -106,6 +114,7 @@ abstract class AudioDatabase : RoomDatabase() {
     abstract fun bookmarkDao(): BookmarkDao
     abstract fun albumArtColorsDao(): AlbumArtColorsDao
     abstract fun waveformDao(): WaveformDao
+    abstract fun pagePlaybackProgressDao(): PagePlaybackProgressDao
 
     companion object {
         private const val DB_NAME = "audio.db"
@@ -378,6 +387,35 @@ abstract class AudioDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds per-page playback progress and the queue's originating page.
+         *
+         * <p>{@code page_playback_progress} stores one row per browsing page, keyed by the
+         * encoded page identity and referencing the last played song by hash. The song hash
+         * — not a queue index — is what keeps the record valid after the user changes the
+         * page's sort order.</p>
+         *
+         * <p>{@code playback_state.origin_page_key} records which page started the current
+         * queue, so the service only writes progress for the page that actually owns the
+         * playback instead of whichever page happens to be visible.</p>
+         */
+        private val MIGRATION_23_24 = object : Migration(23, 24) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS `page_playback_progress` (
+                        `page_key` TEXT NOT NULL,
+                        `audio_hash` INTEGER NOT NULL,
+                        `position_ms` INTEGER NOT NULL,
+                        `updated_at` INTEGER NOT NULL,
+                        PRIMARY KEY(`page_key`)
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_page_playback_progress_updated_at` " +
+                        "ON `page_playback_progress` (`updated_at`)")
+                db.execSQL("ALTER TABLE `playback_state` ADD COLUMN `origin_page_key` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getInstance(context: Context): AudioDatabase {
             return instance ?: synchronized(this) {
                 instance ?: buildDatabase(context.applicationContext).also {
@@ -430,7 +468,8 @@ abstract class AudioDatabase : RoomDatabase() {
                         MIGRATION_19_20,
                         MIGRATION_20_21,
                         MIGRATION_21_22,
-                        MIGRATION_22_23)
+                        MIGRATION_22_23,
+                        MIGRATION_23_24)
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
         }

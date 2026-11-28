@@ -488,4 +488,11 @@
     <string name="reduce_animations">Зменшити анімації</string>
     <string name="reduce_animations_summary">Вимикає деякі другорядні анімації в застосунку. Може підвищити продуктивність на деяких пристроях.\n\nЩоб вимкнути анімації переходів, перейдіть у панель «%1$s».</string>
     <string name="animations">Анімації</string>
+
+    <!-- Page playback progress -->
+    <string name="remember_playback_progress">Запам\'ятовувати прогрес відтворення</string>
+    <string name="remember_playback_progress_summary">Додає кнопку «Продовжити» між «Відтворити» та «Перемішати» на сторінках альбомів, виконавців, жанрів і подібних, продовжуючи останній трек з місця зупинки.</string>
+    <string name="continue_playback">Продовжити</string>
+    <string name="playback_progress_song_missing">Останній відтворений трек більше не в цьому списку.</string>
+    <string name="playback_progress_none">Прогрес ще не записано — відтворення почнеться з першого треку.</string>
 </resources>
